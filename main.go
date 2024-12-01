@@ -10,7 +10,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -26,6 +28,8 @@ type Metadata struct {
 	PathCorrected string
 	Depth         int
 	IsTerminal    bool
+	IsIdentity    bool
+	IsToken       bool
 	Value         string
 }
 
@@ -38,6 +42,15 @@ type Content struct {
 	RecursiveUrl         string
 	RecursiveJsonContent string
 	RecursiveJsonUrl     string
+}
+
+type ContentToken struct {
+	Token    string
+	TokenUrl string
+}
+
+type ContentIdentity struct {
+	GenerateUrl string
 }
 
 var (
@@ -66,7 +79,12 @@ func main() {
 	var err error
 	templates, err = template.New("").Funcs(template.FuncMap{
 		"multiply": multiply,
-	}).ParseFiles("templates/index.html", "templates/content.html")
+	}).ParseFiles(
+		"templates/index.html",
+		"templates/content.html",
+		"templates/token.html",
+		"templates/identity.html",
+		"templates/identityToken.html")
 	if err != nil {
 		log.Fatalf("Error parsing templates: %v", err)
 	}
@@ -74,8 +92,13 @@ func main() {
 	// Root handler: fetch metadata and render the main HTML page
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
+		if r.URL.Path != "/" {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
+
 		// Fetch metadata
-		stringBody, err := fetchMetadata("/", true, true) // Set setJson to true
+		stringBody, _, err := fetchMetadata("/", map[string]string{"alt": "json", "recursive": "true"}) // Set setJson to true
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
@@ -108,35 +131,132 @@ func main() {
 		}
 	})
 
+	// Handler for HTMX requests to dynamically load token details
+	http.HandleFunc("/token/", func(w http.ResponseWriter, r *http.Request) {
+		// Extract the path from the request
+		path := "/" + strings.TrimPrefix(r.URL.Path, "/token/")
+
+		// The prefix for this path is "computeMetadata/v1/instance/service-accounts/" and suffix is "/token" allowing multiple segments in between, if this is not the case return 404
+		matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/token$`, path)
+		if err != nil || !matched {
+			http.Error(w, "Invalid path", http.StatusNotFound)
+			log.Println("Invalid path:", path)
+			return
+		}
+
+		// Get the token content
+		tokenContent, tokenURL, err := fetchMetadata(path, map[string]string{})
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			log.Println("Error fetching metadata:", err)
+			return
+		}
+
+		dataObj := ContentToken{
+			Token:    tokenContent,
+			TokenUrl: defaultBaseDomain + tokenURL,
+		}
+
+		// Return the token.html template
+		if err := templates.ExecuteTemplate(w, "token.html", dataObj); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+			log.Println("Error rendering template:", err)
+		}
+	})
+
+	// Handler for HTMX requests to dynamically load identity details
+	http.HandleFunc("/identity/", func(w http.ResponseWriter, r *http.Request) {
+		// Extract the path from the request
+		path := "/" + strings.TrimPrefix(r.URL.Path, "/identity/")
+
+		// The prefix for this path is "computeMetadata/v1/instance/service-accounts/" and suffix is "/identity" allowing multiple segments in between, if this is not the case return 404
+		matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/identity$`, path)
+		if err != nil || !matched {
+			http.Error(w, "Invalid path", http.StatusNotFound)
+			log.Println("Invalid path:", path)
+			return
+		}
+
+		dataObj := ContentIdentity{
+			GenerateUrl: "/generateIdentity/" + path,
+		}
+
+		// Return the identity.html template
+		if err := templates.ExecuteTemplate(w, "identity.html", dataObj); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+			log.Println("Error rendering template:", err)
+		}
+	})
+
+	// Handler for HTMX requests to dynamically generate identity token
+	http.HandleFunc("/generateIdentity/", func(w http.ResponseWriter, r *http.Request) {
+
+		// Extract the path from the request
+		path := "/" + strings.TrimPrefix(r.URL.Path, "/generateIdentity/")
+		// The prefix for this path is "computeMetadata/v1/instance/service-accounts/" and suffix is "/identity" allowing multiple segments in between, if this is not the case return 404
+		matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/identity$`, path)
+		if err != nil || !matched {
+			http.Error(w, "Invalid path", http.StatusNotFound)
+			log.Println("Invalid path:", path)
+			return
+		}
+
+		// Get the query parameter "audience"
+		audience := r.URL.Query().Get("audience")
+		if audience == "" {
+			http.Error(w, "audience query parameter is required", http.StatusBadRequest)
+			log.Println("audience query parameter is required")
+			return
+		}
+
+		content, tokenURL, err := fetchMetadata(path, map[string]string{"audience": audience})
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			log.Println("Error fetching metadata:", err)
+			return
+		}
+
+		dataObj := ContentToken{
+			Token:    content,
+			TokenUrl: defaultBaseDomain + tokenURL,
+		}
+
+		// Return the identity.html template
+		if err := templates.ExecuteTemplate(w, "identityToken.html", dataObj); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+			log.Println("Error rendering template:", err)
+		}
+	})
+
 	// Handler for HTMX requests to dynamically load metadata details
 	http.HandleFunc("/metadata/", func(w http.ResponseWriter, r *http.Request) {
 		// Extract the path from the request
-		path := strings.TrimPrefix(r.URL.Path, "/metadata/")
+		path := "/" + strings.TrimPrefix(r.URL.Path, "/metadata/")
 
 		// Fetch metadata for the specified path
 
-		standardContent, err := fetchMetadata("/"+path, false, false)
+		standardContent, standardURL, err := fetchMetadata(path, map[string]string{})
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
 			return
 		}
 
-		jsonContent, err := fetchMetadata("/"+path, false, true)
+		jsonContent, jsonURL, err := fetchMetadata(path, map[string]string{"alt": "json"})
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
 			return
 		}
 
-		recursiveContent, err := fetchMetadata("/"+path, true, false)
+		recursiveContent, recursiveURL, err := fetchMetadata(path, map[string]string{"recursive": "true"})
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
 			return
 		}
 
-		recursiveJsonContent, err := fetchMetadata("/"+path, true, true)
+		recursiveJsonContent, recursiveJsonURL, err := fetchMetadata(path, map[string]string{"alt": "json", "recursive": "true"})
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
@@ -145,13 +265,13 @@ func main() {
 
 		dataObj := Content{
 			StandardContent:      standardContent,
-			StandardUrl:          defaultBaseDomain + "/" + path,
+			StandardUrl:          defaultBaseDomain + standardURL,
 			JsonContent:          jsonContent,
-			JsonUrl:              defaultBaseDomain + "/" + path + "?alt=json",
+			JsonUrl:              defaultBaseDomain + jsonURL,
 			RecursiveContent:     recursiveContent,
-			RecursiveUrl:         defaultBaseDomain + "/" + path + "?recursive=true",
+			RecursiveUrl:         defaultBaseDomain + recursiveURL,
 			RecursiveJsonContent: recursiveJsonContent,
-			RecursiveJsonUrl:     defaultBaseDomain + "/" + path + "?recursive=true&alt=json",
+			RecursiveJsonUrl:     defaultBaseDomain + recursiveJsonURL,
 		}
 
 		// Render the template with the flattened data
@@ -173,19 +293,35 @@ func main() {
 }
 
 // fetchMetadata retrieves data from the metadata service
-func fetchMetadata(path string, setRecursive bool, setJson bool) (string, error) {
-	// Build the URL, if recursive is true add "recursive=true" to the query string if json is true add "alt=json" to the query string
-	url := fmt.Sprintf("%s%s?", baseDomain, path)
-	if setRecursive {
-		url += "recursive=true&"
-	}
-	if setJson {
-		url += "alt=json&"
+func fetchMetadata(path string, attributes map[string]string) (string, string, error) {
+	// Build the URL with query parameters from the attributes map
+	baseURL, err := url.Parse(baseDomain)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid base domain: %v", err)
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	// Append the path to the base URL
+	baseURL.Path = path
+
+	query := baseURL.Query()
+	for key, value := range attributes {
+		// Add these to query parameters
+		query.Add(key, value)
+	}
+
+	baseURL.RawQuery = query.Encode()
+
+	requestURL := baseURL.String()
+
+	// Remove the host from the requestURL
+	requestPath := strings.TrimPrefix(requestURL, baseDomain)
+
+	// Remove the following line that causes the crash
+	fmt.Printf("Request URL: %s", requestURL)
+
+	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Add headers
@@ -198,24 +334,21 @@ func fetchMetadata(path string, setRecursive bool, setJson bool) (string, error)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received status %d from metadata service", resp.StatusCode)
+		return "", "", fmt.Errorf("received status %d from metadata service", resp.StatusCode)
 	}
 
 	// Convert the resp.Body to a string
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read metadata response: %v", err)
+		return "", "", fmt.Errorf("failed to read metadata response: %v", err)
 	}
 
-	// Convert the resp.Body to a string
-	bodyString := string(body)
-
-	return bodyString, nil
+	return string(body), requestPath, nil
 }
 
 // basicAuth encodes the username and password for Basic Authentication.
@@ -260,6 +393,7 @@ func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMe
 			if isTerminal {
 				valueStr = getValueString(value)
 			}
+
 			*flattenedMetadata = append(*flattenedMetadata, Metadata{
 				Key:           key,
 				KeyCorrected:  convertToCabobCase(key),
@@ -269,6 +403,13 @@ func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMe
 				IsTerminal:    isTerminal,
 				Value:         valueStr,
 			})
+
+			// Inject special cases for service accounts
+			// Log that we are looking for the special case
+			if strings.HasPrefix(currentPath, "computeMetadata/v1/instance/serviceAccounts") && depth == 4 {
+				injectSpecialCases(currentPath, depth+1, flattenedMetadata)
+			}
+
 			if !isTerminal {
 				flattenMetadataHelper(value, currentPath, depth+1, flattenedMetadata)
 			}
@@ -314,6 +455,30 @@ func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMe
 			Value:      fmt.Sprintf("%v", v),
 		})
 	}
+}
+
+// Helper function to inject `/token` and `/identity`
+func injectSpecialCases(serviceAccountPath string, depth int, flattenedMetadata *[]Metadata) {
+
+	*flattenedMetadata = append(*flattenedMetadata, Metadata{
+		Key:           "token",
+		KeyCorrected:  convertToCabobCase("token"),
+		Path:          fmt.Sprintf("%s/%s", serviceAccountPath, "token"),
+		PathCorrected: convertToCabobCase(fmt.Sprintf("%s/%s", serviceAccountPath, "token")),
+		Depth:         depth,
+		IsTerminal:    true,
+		IsToken:       true,
+	})
+
+	*flattenedMetadata = append(*flattenedMetadata, Metadata{
+		Key:           "identity",
+		KeyCorrected:  convertToCabobCase("identity"),
+		Path:          fmt.Sprintf("%s/%s", serviceAccountPath, "identity"),
+		PathCorrected: convertToCabobCase(fmt.Sprintf("%s/%s", serviceAccountPath, "identity")),
+		Depth:         depth,
+		IsTerminal:    true,
+		IsIdentity:    true,
+	})
 }
 
 // isMap checks if the value is a map.

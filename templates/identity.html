@@ -1,0 +1,7 @@
+<form hx-get="{{ .GenerateUrl }}" hx-target="#identity-token-section">
+    <input type="text" id="audience" name="audience" placeholder="Audience" required>
+    <button type="submit">Request Identity Token</button>
+</form>
+<section id="identity-token-section">
+    Specify an audience and click the button to generate an identity token.
+</section>
