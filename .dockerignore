@@ -1,0 +1,20 @@
+# Ignore the Go build artifacts
+/build/
+*.out
+*.exe
+
+# Ignore dependency directory (if using vendoring)
+vendor/
+
+# Ignore Git files and directories
+.git/
+.gitignore
+
+# Ignore IDE/editor-specific files
+*.DS_Store
+.idea/
+.vscode/
+
+# Ignore test and temporary files
+*.log
+*.tmp

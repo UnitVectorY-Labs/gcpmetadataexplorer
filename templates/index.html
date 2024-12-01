@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GCP Metadata Explorer</title>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100%;
+        }
+
+        .left-panel {
+            width: 350px;
+            background-color: #fff;
+            overflow-y: auto;
+            padding: 1rem;
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .right-panel {
+            flex-grow: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-align: center;
+            color: #3b82f6;
+        }
+
+        .attribute {
+            cursor: pointer;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .attribute:hover {
+            background-color: #f9fafb;
+        }
+
+        .attribute .key {
+            display: inline-block;
+            overflow-wrap: break-word;
+            word-break: break-all;
+            white-space: normal;
+        }
+
+    </style>
+    <!-- Include HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <h1>GCP Metadata Explorer</h1>
+            <div>
+                <div class="attribute" 
+                    hx-get="/metadata/" 
+                    hx-target="#content" 
+                    hx-swap="innerHTML">
+                <span class="key" style="padding-left: 0px;">(Root)</span>
+                </div>
+                {{range .FlattenedMetadata}}
+                    <div class="attribute" 
+                         hx-get="/metadata/{{.PathCorrected}}" 
+                         hx-target="#content" 
+                         hx-swap="innerHTML">
+                        <span class="key" style="padding-left: {{multiply .Depth 10}}px;">⤷
+                            {{.Key}}
+                        </span>
+                    </div>
+                {{end}}
+            </div>
+        </div>
+        <!-- Right Panel -->
+        <div class="right-panel" id="content">
+            <p>Select a metadata attribute to view its details.</p>
+        </div>
+    </div>
+</body>
+</html>
