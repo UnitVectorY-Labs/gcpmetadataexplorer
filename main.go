@@ -16,14 +16,28 @@ import (
 	"unicode"
 )
 
+const defaultBaseDomain = "http://metadata.google.internal"
+
 // Metadata represents each flattened JSON node.
 type Metadata struct {
 	Key           string
+	KeyCorrected  string
 	Path          string
 	PathCorrected string
 	Depth         int
 	IsTerminal    bool
 	Value         string
+}
+
+type Content struct {
+	StandardContent      string
+	StandardUrl          string
+	JsonContent          string
+	JsonUrl              string
+	RecursiveContent     string
+	RecursiveUrl         string
+	RecursiveJsonContent string
+	RecursiveJsonUrl     string
 }
 
 var (
@@ -37,7 +51,7 @@ func main() {
 	// Load environment variables
 	baseDomain = os.Getenv("METADATA_BASE_URL")
 	if baseDomain == "" {
-		baseDomain = "http://metadata.google.internal"
+		baseDomain = defaultBaseDomain
 	}
 
 	// Basic authentication used only for testing purposes
@@ -52,7 +66,7 @@ func main() {
 	var err error
 	templates, err = template.New("").Funcs(template.FuncMap{
 		"multiply": multiply,
-	}).ParseFiles("templates/index.html")
+	}).ParseFiles("templates/index.html", "templates/content.html")
 	if err != nil {
 		log.Fatalf("Error parsing templates: %v", err)
 	}
@@ -61,10 +75,20 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		// Fetch metadata
-		data, stringBody, err := fetchMetadata("/", true, true) // Set setJson to true
+		stringBody, err := fetchMetadata("/", true, true) // Set setJson to true
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
+			return
+		}
+
+		// Decode JSON
+		var data interface{}
+		decoder := json.NewDecoder(bytes.NewReader([]byte(stringBody)))
+		decoder.UseNumber() // Preserve numbers as json.Number
+		if err := decoder.Decode(&data); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to decode metadata response: %v", err), http.StatusInternalServerError)
+			log.Println("Error decoding metadata response:", err)
 			return
 		}
 
@@ -90,23 +114,51 @@ func main() {
 		path := strings.TrimPrefix(r.URL.Path, "/metadata/")
 
 		// Fetch metadata for the specified path
-		data, _, err := fetchMetadata("/"+path, false, true) // Only fetch the specific path
+
+		standardContent, err := fetchMetadata("/"+path, false, false)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
 			return
 		}
 
-		// Render the metadata details as JSON for now (can be adjusted to HTML if needed)
-		w.Header().Set("Content-Type", "application/json")
-		jsonResponse, err := json.MarshalIndent(data, "", "  ")
+		jsonContent, err := fetchMetadata("/"+path, false, true)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to serialize metadata: %v", err), http.StatusInternalServerError)
-			log.Println("Error serializing metadata:", err)
+			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			log.Println("Error fetching metadata:", err)
 			return
 		}
 
-		w.Write(jsonResponse)
+		recursiveContent, err := fetchMetadata("/"+path, true, false)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			log.Println("Error fetching metadata:", err)
+			return
+		}
+
+		recursiveJsonContent, err := fetchMetadata("/"+path, true, true)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			log.Println("Error fetching metadata:", err)
+			return
+		}
+
+		dataObj := Content{
+			StandardContent:      standardContent,
+			StandardUrl:          defaultBaseDomain + "/" + path,
+			JsonContent:          jsonContent,
+			JsonUrl:              defaultBaseDomain + "/" + path + "?alt=json",
+			RecursiveContent:     recursiveContent,
+			RecursiveUrl:         defaultBaseDomain + "/" + path + "?recursive=true",
+			RecursiveJsonContent: recursiveJsonContent,
+			RecursiveJsonUrl:     defaultBaseDomain + "/" + path + "?recursive=true&alt=json",
+		}
+
+		// Render the template with the flattened data
+		if err := templates.ExecuteTemplate(w, "content.html", dataObj); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+			log.Println("Error rendering template:", err)
+		}
 	})
 
 	// Start the server
@@ -120,8 +172,8 @@ func main() {
 	}
 }
 
-// fetchMetadata retrieves JSON data from the metadata service or a local file for testing.
-func fetchMetadata(path string, setRecursive bool, setJson bool) (interface{}, string, error) {
+// fetchMetadata retrieves data from the metadata service
+func fetchMetadata(path string, setRecursive bool, setJson bool) (string, error) {
 	// Build the URL, if recursive is true add "recursive=true" to the query string if json is true add "alt=json" to the query string
 	url := fmt.Sprintf("%s%s?", baseDomain, path)
 	if setRecursive {
@@ -133,7 +185,7 @@ func fetchMetadata(path string, setRecursive bool, setJson bool) (interface{}, s
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
 
 	// Add headers
@@ -146,32 +198,24 @@ func fetchMetadata(path string, setRecursive bool, setJson bool) (interface{}, s
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("received status %d from metadata service", resp.StatusCode)
+		return "", fmt.Errorf("received status %d from metadata service", resp.StatusCode)
 	}
 
 	// Convert the resp.Body to a string
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to read metadata response: %v", err)
+		return "", fmt.Errorf("failed to read metadata response: %v", err)
 	}
 
 	// Convert the resp.Body to a string
 	bodyString := string(body)
 
-	// Decode JSON
-	var data interface{}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.UseNumber() // Preserve numbers as json.Number
-	if err := decoder.Decode(&data); err != nil {
-		return nil, "", fmt.Errorf("failed to decode metadata response: %v", err)
-	}
-
-	return data, bodyString, nil
+	return bodyString, nil
 }
 
 // basicAuth encodes the username and password for Basic Authentication.
@@ -218,6 +262,7 @@ func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMe
 			}
 			*flattenedMetadata = append(*flattenedMetadata, Metadata{
 				Key:           key,
+				KeyCorrected:  convertToCabobCase(key),
 				Path:          currentPath,
 				PathCorrected: convertToCabobCase(currentPath),
 				Depth:         depth,
