@@ -16,6 +16,7 @@
     <div class="container">
         <!-- Left Panel: Navigation -->
         <div class="left-panel">
+            {{if not .Error}}
             <div>
                 <div class="attribute" 
                     hx-get="/metadata/" 
@@ -48,11 +49,18 @@
                     {{end}}
                 {{end}}
             </div>
+            {{end}}
         </div>
 
         <!-- Right Panel: Main Content -->
         <div class="right-panel" id="content">
+            {{if .Error}}
+            <div class="error">
+                <span><strong>Error:</strong> {{.Error}}</span>
+            </div>
+            {{else}}
             <p>Select a metadata attribute to view its details.</p>
+            {{end}}
         </div>
     </div>
 

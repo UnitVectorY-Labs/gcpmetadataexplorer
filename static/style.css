@@ -64,6 +64,16 @@ header h1 {
     white-space: normal;
 }
 
+.error {
+    color: #ff4d4f;
+    background-color: #fff1f0;
+    border: 1px solid #ffa39e;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .right-panel {
     flex-grow: 1;
     padding: 2rem;

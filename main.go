@@ -81,6 +81,7 @@ func main() {
 	}).ParseFiles(
 		"templates/index.html",
 		"templates/content.html",
+		"templates/error.html",
 		"templates/token.html",
 		"templates/identity.html",
 		"templates/identityToken.html")
@@ -100,31 +101,32 @@ func main() {
 			return
 		}
 
+		var flattenedMetadata interface{}
+		var errorMessage string
+
 		// Fetch metadata
-		stringBody, _, err := fetchMetadata("/", map[string]string{"alt": "json", "recursive": "true"}) // Set setJson to true
+		stringBody, _, err := fetchMetadata("/", map[string]string{"alt": "json", "recursive": "true"})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
 			log.Println("Error fetching metadata:", err)
-			return
+			errorMessage = "Failed to fetch metadata from the metadata server"
+		} else {
+			// Decode JSON
+			var data interface{}
+			decoder := json.NewDecoder(bytes.NewReader([]byte(stringBody)))
+			decoder.UseNumber() // Preserve numbers as json.Number
+			if err := decoder.Decode(&data); err != nil {
+				log.Println("Error decoding metadata response:", err)
+				errorMessage = "Failed to decode metadata response"
+			} else {
+				// Flatten the metadata
+				flattenedMetadata = flattenMetadata(data)
+			}
 		}
-
-		// Decode JSON
-		var data interface{}
-		decoder := json.NewDecoder(bytes.NewReader([]byte(stringBody)))
-		decoder.UseNumber() // Preserve numbers as json.Number
-		if err := decoder.Decode(&data); err != nil {
-			http.Error(w, fmt.Sprintf("Failed to decode metadata response: %v", err), http.StatusInternalServerError)
-			log.Println("Error decoding metadata response:", err)
-			return
-		}
-
-		// Flatten the metadata
-		flattenedMetadata := flattenMetadata(data)
 
 		// Create a data object to pass to the template
 		dataObj := map[string]interface{}{
-			"Metadata":          stringBody,
 			"FlattenedMetadata": flattenedMetadata,
+			"Error":             errorMessage,
 		}
 
 		// Render the template with the flattened data
@@ -139,9 +141,7 @@ func main() {
 		// Extract the path from the request
 		path := "/" + strings.TrimPrefix(r.URL.Path, "/token/")
 
-		// The prefix for this path is "computeMetadata/v1/instance/service-accounts/" and suffix is "/token" allowing multiple segments in between, if this is not the case return 404
-		matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/token$`, path)
-		if err != nil || !matched {
+		if !isTokenPath(path) {
 			http.Error(w, "Invalid path", http.StatusNotFound)
 			log.Println("Invalid path:", path)
 			return
@@ -150,7 +150,7 @@ func main() {
 		// Get the token content
 		tokenContent, tokenURL, err := fetchMetadata(path, map[string]string{})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			renderError(w, "Failed to fetch token from the metadata server")
 			log.Println("Error fetching metadata:", err)
 			return
 		}
@@ -172,9 +172,7 @@ func main() {
 		// Extract the path from the request
 		path := "/" + strings.TrimPrefix(r.URL.Path, "/identity/")
 
-		// The prefix for this path is "computeMetadata/v1/instance/service-accounts/" and suffix is "/identity" allowing multiple segments in between, if this is not the case return 404
-		matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/identity$`, path)
-		if err != nil || !matched {
+		if !isIdentityPath(path) {
 			http.Error(w, "Invalid path", http.StatusNotFound)
 			log.Println("Invalid path:", path)
 			return
@@ -196,9 +194,8 @@ func main() {
 
 		// Extract the path from the request
 		path := "/" + strings.TrimPrefix(r.URL.Path, "/generateIdentity/")
-		// The prefix for this path is "computeMetadata/v1/instance/service-accounts/" and suffix is "/identity" allowing multiple segments in between, if this is not the case return 404
-		matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/identity$`, path)
-		if err != nil || !matched {
+
+		if !isIdentityPath(path) {
 			http.Error(w, "Invalid path", http.StatusNotFound)
 			log.Println("Invalid path:", path)
 			return
@@ -207,14 +204,14 @@ func main() {
 		// Get the query parameter "audience"
 		audience := r.URL.Query().Get("audience")
 		if audience == "" {
-			http.Error(w, "audience query parameter is required", http.StatusBadRequest)
+			renderError(w, "Failed to generate identity token: audience query parameter is required")
 			log.Println("audience query parameter is required")
 			return
 		}
 
 		content, tokenURL, err := fetchMetadata(path, map[string]string{"audience": audience})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			renderError(w, "Failed to generate identity token: failed to fetch metadata from the metadata server")
 			log.Println("Error fetching metadata:", err)
 			return
 		}
@@ -238,30 +235,37 @@ func main() {
 
 		// Fetch metadata for the specified path
 
+		if isIdentityPath(path) || isTokenPath(path) {
+			// return an error
+			http.Error(w, "Invalid path", http.StatusNotFound)
+			log.Println("Invalid path:", path)
+			return
+		}
+
 		standardContent, standardURL, err := fetchMetadata(path, map[string]string{})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			renderError(w, "Failed to fetch metadata from the metadata server")
 			log.Println("Error fetching metadata:", err)
 			return
 		}
 
 		jsonContent, jsonURL, err := fetchMetadata(path, map[string]string{"alt": "json"})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			renderError(w, "Failed to fetch metadata from the metadata server")
 			log.Println("Error fetching metadata:", err)
 			return
 		}
 
 		recursiveContent, recursiveURL, err := fetchMetadata(path, map[string]string{"recursive": "true"})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			renderError(w, "Failed to fetch metadata from the metadata server")
 			log.Println("Error fetching metadata:", err)
 			return
 		}
 
 		recursiveJsonContent, recursiveJsonURL, err := fetchMetadata(path, map[string]string{"alt": "json", "recursive": "true"})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to fetch metadata: %v", err), http.StatusInternalServerError)
+			renderError(w, "Failed to fetch metadata from the metadata server")
 			log.Println("Error fetching metadata:", err)
 			return
 		}
@@ -349,6 +353,17 @@ func fetchMetadata(path string, attributes map[string]string) (string, string, e
 	}
 
 	return string(body), requestPath, nil
+}
+
+func renderError(w http.ResponseWriter, message string) {
+	dataObj := map[string]interface{}{
+		"Error": message,
+	}
+
+	if err := templates.ExecuteTemplate(w, "error.html", dataObj); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+		log.Println("Error rendering template:", err)
+	}
 }
 
 // basicAuth encodes the username and password for Basic Authentication.
@@ -563,4 +578,14 @@ func convertToCabobCase(s string) string {
 		result.WriteRune(unicode.ToLower(char))
 	}
 	return result.String()
+}
+
+func isIdentityPath(path string) bool {
+	matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/identity$`, path)
+	return err == nil && matched
+}
+
+func isTokenPath(path string) bool {
+	matched, err := regexp.MatchString(`^/computeMetadata/v1/instance/service-accounts/[^/]+/token$`, path)
+	return err == nil && matched
 }
