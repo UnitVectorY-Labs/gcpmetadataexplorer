@@ -20,7 +20,6 @@ import (
 
 const defaultBaseDomain = "http://metadata.google.internal"
 
-// Metadata represents each flattened JSON node.
 type Metadata struct {
 	Key           string
 	KeyCorrected  string
@@ -88,6 +87,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing templates: %v", err)
 	}
+
+	// Serve static files from the "static" directory
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Root handler: fetch metadata and render the main HTML page
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -313,11 +316,8 @@ func fetchMetadata(path string, attributes map[string]string) (string, string, e
 
 	requestURL := baseURL.String()
 
-	// Remove the host from the requestURL
+	// Remove the host from the requestURL that is returned
 	requestPath := strings.TrimPrefix(requestURL, baseDomain)
-
-	// Remove the following line that causes the crash
-	fmt.Printf("Request URL: %s", requestURL)
 
 	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
