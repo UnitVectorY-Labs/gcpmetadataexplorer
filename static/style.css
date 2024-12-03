@@ -174,21 +174,48 @@ form button:active {
     transform: scale(0.98);
 }
 
+.notice {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background-color: #fef3c7;
+    border: 1px solid #facc15;
+    border-radius: 5px;
+    color: #92400e;
+    margin-bottom: 1rem;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.notice strong {
+    margin-right: 0.5rem;
+    font-weight: bold;
+}
+
+.notice .icon {
+    margin-right: 0.75rem;
+    font-size: 1.5rem;
+    color: #facc15;
+}
+
 .breadcrumbs {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
     padding: 1rem;
-    font-size: 1.25rem; /* Larger font size for emphasis */
+    font-size: 1.25rem;
     background-color: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
     margin-bottom: 1rem;
     font-family: Arial, sans-serif;
+    gap: 0.5rem;
+    word-wrap: break-word;
 }
 
 .breadcrumbs .breadcrumb {
     display: inline-block;
-    color: #3b82f6; /* Blue for links */
+    color: #3b82f6;
     text-decoration: none;
     font-weight: bold;
     margin-right: 0.5rem;
@@ -200,16 +227,16 @@ form button:active {
 
 .breadcrumbs .segment {
     display: inline-block;
-    color: #6b7280; /* Gray for separators */
+    color: #6b7280;
     margin: 0 0.5rem;
     font-weight: normal;
 }
 
 .breadcrumbs .breadcrumb-current {
-    color: #1f2937; /* Black for the last segment */
+    color: #1f2937;
     pointer-events: none;
     font-weight: bold;
-    margin-right: 0; /* No additional spacing after the last breadcrumb */
+    margin-right: 0;
     text-decoration: none;
 }
 
@@ -252,5 +279,12 @@ footer a:hover {
 
     .right-panel {
         height: calc(100vh - 120px - 200px);
+    }
+
+    .breadcrumbs .breadcrumb,
+    .breadcrumbs .segment,
+    .breadcrumbs .breadcrumb-current {
+        margin-right: 0.25rem;
+        word-break: break-word;
     }
 }

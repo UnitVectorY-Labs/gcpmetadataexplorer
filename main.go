@@ -69,6 +69,9 @@ var (
 
 func main() {
 
+	// Environment variable to allow access to GCP Access and Identity tokens which are disabled by default
+	allowAccessTokens := os.Getenv("ALLOW_TOKENS") == "true"
+
 	// Load environment variables
 	baseDomain = os.Getenv("METADATA_BASE_URL")
 	if baseDomain == "" {
@@ -92,7 +95,9 @@ func main() {
 		"templates/content.html",
 		"templates/error.html",
 		"templates/token.html",
+		"templates/tokenDisabled.html",
 		"templates/identity.html",
+		"templates/identityDisabled.html",
 		"templates/identityToken.html")
 	if err != nil {
 		log.Fatalf("Error parsing templates: %v", err)
@@ -172,6 +177,15 @@ func main() {
 			TokenUrl: defaultBaseDomain + tokenURL,
 		}
 
+		if !allowAccessTokens {
+			// Access token will not be displayed to the user
+			if err := templates.ExecuteTemplate(w, "tokenDisabled.html", dataObj); err != nil {
+				http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+				log.Println("Error rendering template:", err)
+			}
+			return
+		}
+
 		// Return the token.html template
 		if err := templates.ExecuteTemplate(w, "token.html", dataObj); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
@@ -197,6 +211,15 @@ func main() {
 			GenerateUrl: "/generateIdentity/" + path,
 		}
 
+		if !allowAccessTokens {
+			// Access token will not be displayed to the user
+			if err := templates.ExecuteTemplate(w, "identityDisabled.html", dataObj); err != nil {
+				http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+				log.Println("Error rendering template:", err)
+			}
+			return
+		}
+
 		// Return the identity.html template
 		if err := templates.ExecuteTemplate(w, "identity.html", dataObj); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
@@ -213,6 +236,12 @@ func main() {
 		if !isIdentityPath(path) {
 			http.Error(w, "Invalid path", http.StatusNotFound)
 			log.Println("Invalid path:", path)
+			return
+		}
+
+		if !allowAccessTokens {
+			renderError(w, "Failed to generate identity token: access tokens are disabled")
+			log.Println("Access tokens are disabled")
 			return
 		}
 

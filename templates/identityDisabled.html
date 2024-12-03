@@ -1,0 +1,21 @@
+<div class="breadcrumbs">
+{{ range .Segments }}
+    <div class="segment">/</div>
+    <div class="breadcrumb">
+        {{ if .Link }}
+            <div hx-get="/metadata/{{.Url}}" 
+                    hx-target="#content" 
+                    hx-swap="innerHTML">{{ .Name }}</div>
+        {{ else }}
+            <div class="breadcrumb breadcrumb-current">{{ .Name }}</div>
+        {{ end }}
+    </div>
+{{ end }}
+</div>
+
+<h2>GCP Identity Token</h2>
+
+<div class="notice">
+    <span class="icon">⚠️</span>
+    <span><strong>Notice:</strong> The ability to request identity tokens in <strong>gcpmetadataexplorer</strong> is disabled by default. To enable it, set the environment variable <code>ALLOW_TOKEN_REQUESTS</code> to <code>true</code>.</span>
+</div>
