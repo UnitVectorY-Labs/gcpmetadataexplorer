@@ -1,15 +1,31 @@
-<h2>Content</h2>
+<div class="breadcrumbs">
+{{ range .Segments }}
+    <div class="segment">/</div>
+    <div class="breadcrumb">
+        {{ if .Link }}
+            <div hx-get="/metadata/{{.Url}}" 
+                 hx-target="#content" 
+                 hx-swap="innerHTML">{{ .Name }}</div>
+        {{ else }}
+            <div class="breadcrumb breadcrumb-current">{{ .Name }}</div>
+        {{ end }}
+    </div>
+{{ end }}
+</div>
+
+
+<h2>Metadata</h2>
 <p class="url">GET {{ .StandardUrl }}</p>
 <pre><code>{{ .StandardContent }}</code></pre>
 
-<h2>JSON</h2>
+<h2>Metadata JSON</h2>
 <p class="url">GET {{ .JsonUrl }}</p>
 <pre><code>{{ .JsonContent }}</code></pre>
 
-<h2>Recursive</h2>
+<h2>Metadata Recursive Content</h2>
 <p class="url">GET {{ .RecursiveUrl }}</p>
 <pre><code>{{ .RecursiveContent }}</code></pre>
 
-<h2>Recursive JSON</h2>
+<h2>Metadata Recursive JSON</h2>
 <p class="url">GET {{ .RecursiveJsonUrl }}</p>
 <pre><code>{{ .RecursiveJsonContent }}</code></pre>

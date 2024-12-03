@@ -1,3 +1,18 @@
-<h2>Token</h2>
+<div class="breadcrumbs">
+{{ range .Segments }}
+    <div class="segment">/</div>
+    <div class="breadcrumb">
+        {{ if .Link }}
+            <div hx-get="/metadata/{{.Url}}" 
+                    hx-target="#content" 
+                    hx-swap="innerHTML">{{ .Name }}</div>
+        {{ else }}
+            <div class="breadcrumb breadcrumb-current">{{ .Name }}</div>
+        {{ end }}
+    </div>
+{{ end }}
+</div>
+
+<h2>GCP Access Token</h2>
 <p class="url">GET {{ .TokenUrl }}</p>
 <pre><code>{{ .Token }}</code></pre>

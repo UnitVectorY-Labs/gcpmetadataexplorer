@@ -1,7 +1,23 @@
+<div class="breadcrumbs">
+{{ range .Segments }}
+    <div class="segment">/</div>
+    <div class="breadcrumb">
+        {{ if .Link }}
+            <div hx-get="/metadata/{{.Url}}" 
+                    hx-target="#content" 
+                    hx-swap="innerHTML">{{ .Name }}</div>
+        {{ else }}
+            <div class="breadcrumb breadcrumb-current">{{ .Name }}</div>
+        {{ end }}
+    </div>
+{{ end }}
+</div>
+
+<h2>GCP Identity Token</h2>
 <form hx-get="{{ .GenerateUrl }}" hx-target="#identity-token-section">
     <input type="text" id="audience" name="audience" placeholder="Audience" required>
     <button type="submit">Request Identity Token</button>
 </form>
 <section id="identity-token-section">
-    Specify an audience and click the button to generate an identity token.
+    Specify an audience to generate an identity token.
 </section>

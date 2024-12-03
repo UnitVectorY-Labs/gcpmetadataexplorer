@@ -33,6 +33,7 @@ type Metadata struct {
 }
 
 type Content struct {
+	Segments             []Segment
 	StandardContent      string
 	StandardUrl          string
 	JsonContent          string
@@ -44,12 +45,20 @@ type Content struct {
 }
 
 type ContentToken struct {
+	Segments []Segment
 	Token    string
 	TokenUrl string
 }
 
 type ContentIdentity struct {
+	Segments    []Segment
 	GenerateUrl string
+}
+
+type Segment struct {
+	Url  string
+	Name string
+	Link bool
 }
 
 var (
@@ -155,7 +164,10 @@ func main() {
 			return
 		}
 
+		segments := buildBreadcrumb(tokenURL)
+
 		dataObj := ContentToken{
+			Segments: segments,
 			Token:    tokenContent,
 			TokenUrl: defaultBaseDomain + tokenURL,
 		}
@@ -178,7 +190,10 @@ func main() {
 			return
 		}
 
+		segments := buildBreadcrumb(path)
+
 		dataObj := ContentIdentity{
+			Segments:    segments,
 			GenerateUrl: "/generateIdentity/" + path,
 		}
 
@@ -270,7 +285,10 @@ func main() {
 			return
 		}
 
+		segments := buildBreadcrumb(standardURL)
+
 		dataObj := Content{
+			Segments:             segments,
 			StandardContent:      standardContent,
 			StandardUrl:          defaultBaseDomain + standardURL,
 			JsonContent:          jsonContent,
@@ -353,6 +371,20 @@ func fetchMetadata(path string, attributes map[string]string) (string, string, e
 	}
 
 	return string(body), requestPath, nil
+}
+
+func buildBreadcrumb(path string) []Segment {
+	pathSegments := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	segments := make([]Segment, 0, len(pathSegments))
+	for i := 0; i < len(pathSegments); i++ {
+		segment := strings.Join(pathSegments[:i+1], "/")
+		segments = append(segments, Segment{
+			Url:  segment,
+			Name: pathSegments[i],
+			Link: i != len(pathSegments)-1,
+		})
+	}
+	return segments
 }
 
 func renderError(w http.ResponseWriter, message string) {
