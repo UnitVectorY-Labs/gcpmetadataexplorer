@@ -23,6 +23,9 @@ COPY --from=builder /app/server /server
 # Copy the template folder into the runtime container
 COPY --from=builder /app/templates /templates
 
+# Copy the static folder into the runtime container
+COPY --from=builder /app/static /static
+
 # Expose the port that the server will listen on
 EXPOSE 8080
 
