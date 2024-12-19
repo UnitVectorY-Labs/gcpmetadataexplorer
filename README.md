@@ -1,4 +1,4 @@
-[![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT) [![Work In Progress](https://img.shields.io/badge/Status-Work%20In%20Progress-yellow)](https://guide.unitvectorylabs.com/bestpractices/status/#work-in-progress)
+[![GitHub release](https://img.shields.io/github/release/UnitVectorY-Labs/gcpmetadataexplorer.svg)](https://github.com/UnitVectorY-Labs/iapheaders/releases/latest) [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT) [![Active](https://img.shields.io/badge/Status-Active-green)](https://guide.unitvectorylabs.com/bestpractices/status/#active)
 
 # gcpmetadataexplorer
 
@@ -21,7 +21,7 @@ The latest `gcpmetadataexplorer` Docker image is available for deployment from G
 You can easily deploy this application locally to test it out with the following command:
 
 ```bash
-docker run -p 8080:8080 -e ALLOW_TOKENS=false ghcr.io/unitvectory-labs/gcpmetadataexplorer:dev
+docker run -p 8080:8080 -e ALLOW_TOKENS=false ghcr.io/unitvectory-labs/gcpmetadataexplorer:v0.1.0
 ```
 
 However, running outside of GCP all you will get is the "Error: Failed to fetch metadata from the metadata server" error.
