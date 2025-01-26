@@ -21,7 +21,7 @@ The latest `gcpmetadataexplorer` Docker image is available for deployment from G
 You can easily deploy this application locally to test it out with the following command:
 
 ```bash
-docker run -p 8080:8080 -e ALLOW_TOKENS=false ghcr.io/unitvectory-labs/gcpmetadataexplorer:v0.1.2
+docker run -p 8080:8080 -e ALLOW_TOKENS=false ghcr.io/unitvectory-labs/gcpmetadataexplorer:v0.2.0
 ```
 
 However, running outside of GCP all you will get is the "Error: Failed to fetch metadata from the metadata server" error.
