@@ -18,13 +18,7 @@ The metadata server is also capable of returning both GCP access tokens and iden
 
 The latest `gcpmetadataexplorer` Docker image is available for deployment from GitHub Packages at [ghcr.io/unitvectory-labs/gcpmetadataexplorer](https://github.com/UnitVectorY-Labs/gcpmetadataexplorer/pkgs/container/gcpmetadataexplorer).
 
-You can easily deploy this application locally to test it out with the following command:
-
-```bash
-docker run -p 8080:8080 -e ALLOW_TOKENS=false ghcr.io/unitvectory-labs/gcpmetadataexplorer:v0.2.1
-```
-
-However, running outside of GCP all you will get is the "Error: Failed to fetch metadata from the metadata server" error.
+You can deploy this application locally for testing, but outside of GCP, it will return the error: “Error: Failed to fetch metadata from the metadata server.”
 
 ## ⚠️ Security Warning ⚠️
 
