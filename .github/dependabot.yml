@@ -13,6 +13,14 @@ updates:
       time: "06:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 20
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 20
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
