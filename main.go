@@ -69,7 +69,7 @@ var (
 
 func main() {
 
-	// Environment variable to allow access to GCP Access and Identity tokens which are disabled by default
+	// Environment variable to allow access to GCP Access and Identity tokens, which are disabled by default
 	allowAccessTokens := os.Getenv("ALLOW_TOKENS") == "true"
 
 	// Load environment variables
@@ -367,7 +367,7 @@ func fetchMetadata(path string, attributes map[string]string) (string, string, e
 
 	requestURL := baseURL.String()
 
-	// Remove the host from the requestURL that is returned
+	// Remove the host part from the request URL returned by the function
 	requestPath := strings.TrimPrefix(requestURL, baseDomain)
 
 	req, err := http.NewRequest("GET", requestURL, nil)
@@ -472,16 +472,15 @@ func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMe
 
 			*flattenedMetadata = append(*flattenedMetadata, Metadata{
 				Key:           key,
-				KeyCorrected:  convertToCabobCase(key),
+				KeyCorrected:  convertToKebabCase(key),
 				Path:          currentPath,
-				PathCorrected: convertToCabobCase(currentPath),
+				PathCorrected: convertToKebabCase(currentPath),
 				Depth:         depth,
 				IsTerminal:    isTerminal,
 				Value:         valueStr,
 			})
 
 			// Inject special cases for service accounts
-			// Log that we are looking for the special case
 			if strings.HasPrefix(currentPath, "computeMetadata/v1/instance/serviceAccounts") && depth == 4 {
 				injectSpecialCases(currentPath, depth+1, flattenedMetadata)
 			}
@@ -538,9 +537,9 @@ func injectSpecialCases(serviceAccountPath string, depth int, flattenedMetadata 
 
 	*flattenedMetadata = append(*flattenedMetadata, Metadata{
 		Key:           "token",
-		KeyCorrected:  convertToCabobCase("token"),
+		KeyCorrected:  convertToKebabCase("token"),
 		Path:          fmt.Sprintf("%s/%s", serviceAccountPath, "token"),
-		PathCorrected: convertToCabobCase(fmt.Sprintf("%s/%s", serviceAccountPath, "token")),
+		PathCorrected: convertToKebabCase(fmt.Sprintf("%s/%s", serviceAccountPath, "token")),
 		Depth:         depth,
 		IsTerminal:    true,
 		IsToken:       true,
@@ -548,9 +547,9 @@ func injectSpecialCases(serviceAccountPath string, depth int, flattenedMetadata 
 
 	*flattenedMetadata = append(*flattenedMetadata, Metadata{
 		Key:           "identity",
-		KeyCorrected:  convertToCabobCase("identity"),
+		KeyCorrected:  convertToKebabCase("identity"),
 		Path:          fmt.Sprintf("%s/%s", serviceAccountPath, "identity"),
-		PathCorrected: convertToCabobCase(fmt.Sprintf("%s/%s", serviceAccountPath, "identity")),
+		PathCorrected: convertToKebabCase(fmt.Sprintf("%s/%s", serviceAccountPath, "identity")),
 		Depth:         depth,
 		IsTerminal:    true,
 		IsIdentity:    true,
@@ -617,8 +616,8 @@ func getValueString(value interface{}) string {
 	}
 }
 
-// Add a new helper function to convert camelCase to cabob case
-func convertToCabobCase(s string) string {
+// Add a new helper function to convert camelCase to kebab-case
+func convertToKebabCase(s string) string {
 	const prefix = "computeMetadata"
 	if strings.HasPrefix(s, prefix) {
 		rest := s[len(prefix):]
