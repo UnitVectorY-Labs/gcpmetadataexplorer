@@ -10,9 +10,9 @@ A web-based interface for browsing and inspecting the GCP metadata server.
 
 ![Application Interface](./assets/interface.png)
 
-The purpose of this application is to provide a simple interface for developers to explore the GCP metadata server.  This is not intended for use in a production envirionment.  The GCP metadata server has several quirks when it comes to the query responses that are easily demonstrated with this application.  The service can return responses in plain text or JSON format, depending on the query parameters. Recursive queries can also be made at multiple levels returning various subsets of data.  The application allows for navigating this hierarchy showing what the various types of requests return as a response.
+The purpose of this application is to provide a simple interface for developers to explore the GCP metadata server.  This is not intended for use in a production environment.  The GCP metadata server has several quirks when it comes to the query responses that are easily demonstrated with this application.  The service can return responses in plain text or JSON format, depending on the query parameters. Recursive queries can also be made at multiple levels, returning various subsets of data.  The application allows for navigating this hierarchy, showing what the various types of requests return as a response.
 
-The metadata server is also capable of returning both GCP access tokens and identity tokens.  This functionality is disabled by default due to the security implications of accidentally exposing these tokens.  The application can be configured to allow access to these tokens through the interface but care should be taken to ensure that the application is not exposed to the public internet.
+The metadata server is also capable of returning both GCP access tokens and identity tokens.  This functionality is disabled by default due to the security implications of accidentally exposing these tokens.  The application can be configured to allow access to these tokens through the interface, but care should be taken to ensure that the application is not exposed to the public internet.
 
 ## Usage
 
