@@ -6,7 +6,7 @@ A web-based interface for browsing and inspecting the GCP metadata server.
 
 ## Overview
 
-`gcpmetadataexplorer` is a web application designed for deployment on GCP to explore data available from the GCP [metadata server](https://cloud.google.com/compute/docs/metadata/overview). The metadata server can be accessed at `http://metadata.google.internal/computeMetadata/v1` when running on a VM or container in GCP and is used to provide information about the instance, project, and service account. This application provides a user-friendly interface for browsing the metadata server and inspecting the data available including the various URLs for accessing metadata.
+`gcpmetadataexplorer` is a web application designed for deployment on GCP to explore data available from the GCP [metadata server](https://cloud.google.com/compute/docs/metadata/overview). The metadata server can be accessed at `http://metadata.google.internal/computeMetadata/v1` when running on a VM or container in GCP, and is used to provide information about the instance, project, and service account. This application provides a user-friendly interface for browsing the metadata server and inspecting the data available, including the various URLs for accessing metadata.
 
 ![Application Interface](./assets/interface.png)
 
