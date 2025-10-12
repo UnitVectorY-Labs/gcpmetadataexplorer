@@ -1,3 +1,3 @@
 module github.com/UnitVectorY-Labs/gcpmetadataexplorer
 
-go 1.25.1 // GOVERSION
+go 1.25.2 // GOVERSION
