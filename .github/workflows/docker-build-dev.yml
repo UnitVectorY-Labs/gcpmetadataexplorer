@@ -34,6 +34,17 @@ jobs:
       run: |
         echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
+    - name: Compute version string
+      run: |
+        SHA12="${GITHUB_SHA:0:12}"
+        BRANCH="${GITHUB_REF_NAME}"
+        if [ -z "${BRANCH}" ]; then
+          VERSION="dev"
+        else
+          VERSION="dev/${BRANCH}@${SHA12}"
+        fi
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
     - name: Build and push Docker image
       uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
       with:
@@ -41,6 +52,8 @@ jobs:
         push: true
         platforms: linux/amd64,linux/arm64
         tags: ghcr.io/${{ env.REPO_LC }}-snapshot:dev
+        build-args: |
+          VERSION=${{ env.VERSION }}
 
     - name: Set lowercase package name
       run: |

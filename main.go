@@ -20,6 +20,9 @@ import (
 	"unicode"
 )
 
+// Version is the application version, set at build time via ldflags
+var Version = "dev"
+
 //go:embed templates/*
 var templatesFS embed.FS
 
@@ -94,10 +97,14 @@ func main() {
 		authHeader = "Basic " + basicAuth(username, password)
 	}
 
+	// Log version at startup
+	log.Printf("Starting gcpmetadataexplorer version %s", Version)
+
 	// Parse template with helper functions from embedded filesystem
 	var err error
 	templates, err = template.New("").Funcs(template.FuncMap{
 		"multiply": multiply,
+		"version":  func() string { return Version },
 	}).ParseFS(templatesFS,
 		"templates/index.html",
 		"templates/content.html",
