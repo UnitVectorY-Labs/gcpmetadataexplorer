@@ -3,11 +3,13 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
@@ -17,6 +19,12 @@ import (
 	"strings"
 	"unicode"
 )
+
+//go:embed templates/*
+var templatesFS embed.FS
+
+//go:embed static/*
+var staticFS embed.FS
 
 const defaultBaseDomain = "http://metadata.google.internal"
 
@@ -86,11 +94,11 @@ func main() {
 		authHeader = "Basic " + basicAuth(username, password)
 	}
 
-	// Parse template with helper functions
+	// Parse template with helper functions from embedded filesystem
 	var err error
 	templates, err = template.New("").Funcs(template.FuncMap{
 		"multiply": multiply,
-	}).ParseFiles(
+	}).ParseFS(templatesFS,
 		"templates/index.html",
 		"templates/content.html",
 		"templates/error.html",
@@ -103,8 +111,12 @@ func main() {
 		log.Fatalf("Error parsing templates: %v", err)
 	}
 
-	// Serve static files from the "static" directory
-	fs := http.FileServer(http.Dir("./static"))
+	// Serve static files from the embedded "static" directory
+	staticSubFS, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		log.Fatalf("Error creating static sub-filesystem: %v", err)
+	}
+	fs := http.FileServer(http.FS(staticSubFS))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Root handler: fetch metadata and render the main HTML page
