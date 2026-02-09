@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"unicode"
@@ -79,6 +80,14 @@ var (
 )
 
 func main() {
+	// Set the build version from the build info if not set by the build system
+	if Version == "dev" || Version == "" {
+		if bi, ok := debug.ReadBuildInfo(); ok {
+			if bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+				Version = bi.Main.Version
+			}
+		}
+	}
 
 	// Environment variable to allow access to GCP Access and Identity tokens, which are disabled by default
 	allowAccessTokens := os.Getenv("ALLOW_TOKENS") == "true"
