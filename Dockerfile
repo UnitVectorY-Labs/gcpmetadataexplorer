@@ -29,5 +29,8 @@ COPY --from=builder /app/server /server
 # Expose the port that the server will listen on
 EXPOSE 8080
 
+# Run as non-root user
+USER 65532:65532
+
 # Run the server binary
 CMD ["/server"]

@@ -3,12 +3,23 @@ name: Build and Push Development Docker Images
 on:
   push:
     branches: [ "main" ]
+
+concurrency:
+  group: docker
+
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    concurrency:
-      group: docker
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
 
     permissions:
       contents: read
@@ -16,7 +27,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         persist-credentials: false
 
@@ -45,17 +56,64 @@ jobs:
         fi
         echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-    - name: Build and push Docker image
+    - name: Build and push Docker image (single arch)
       uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
       with:
         context: .
         push: true
-        platforms: linux/amd64,linux/arm64
-        tags: ghcr.io/${{ env.REPO_LC }}-snapshot:dev
+        platforms: linux/${{ matrix.arch }}
+        tags: ghcr.io/${{ env.REPO_LC }}-snapshot:dev-${{ matrix.arch }}
         build-args: |
           VERSION=${{ env.VERSION }}
 
+  manifest:
+    needs: build-and-push
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set lowercase repository name
+      run: |
+        echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+    - name: Create and push multi-arch manifest tag
+      shell: bash
+      run: |
+        IMAGE="ghcr.io/${REPO_LC}-snapshot"
+
+        docker buildx imagetools create \
+          -t "${IMAGE}:dev" \
+          "${IMAGE}:dev-amd64" \
+          "${IMAGE}:dev-arm64"
+
+        docker buildx imagetools inspect "${IMAGE}:dev"
+
+  cleanup:
+    needs: manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
     - name: Set lowercase package name
+      shell: bash
       run: |
         PACKAGE_NAME=${GITHUB_REPOSITORY##*/}
         echo "PACKAGE_NAME_LC=${PACKAGE_NAME,,}" >> $GITHUB_ENV
@@ -68,3 +126,26 @@ jobs:
         package-type: container
         min-versions-to-keep: 10
         delete-only-untagged-versions: 'true'
+
+  trigger-rollout:
+    needs: manifest
+    runs-on: arc-runner-set
+    timeout-minutes: 10
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Set lowercase repository name
+        shell: bash
+        run: |
+          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Trigger rollout
+        uses: unitvectory-labs/kuberollouttrigger-action@e95cb8eb9a669a16363c13734a3663a7bcca54f2 # v0.2.0
+        with:
+          audience: ${{ secrets.KUBEROLLOUTTRIGGER_AUD }}
+          url: ${{ secrets.KUBEROLLOUTTRIGGER_URL }}
+          image: ghcr.io/${{ env.REPO_LC }}-snapshot
+          tags: dev,dev-amd64,dev-arm64
