@@ -143,7 +143,7 @@ func main() {
 			return
 		}
 
-		var flattenedMetadata interface{}
+		var flattenedMetadata any
 		var errorMessage string
 
 		// Fetch metadata
@@ -153,7 +153,7 @@ func main() {
 			errorMessage = "Failed to fetch metadata from the metadata server"
 		} else {
 			// Decode JSON
-			var data interface{}
+			var data any
 			decoder := json.NewDecoder(bytes.NewReader([]byte(stringBody)))
 			decoder.UseNumber() // Preserve numbers as json.Number
 			if err := decoder.Decode(&data); err != nil {
@@ -166,7 +166,7 @@ func main() {
 		}
 
 		// Create a data object to pass to the template
-		dataObj := map[string]interface{}{
+		dataObj := map[string]any{
 			"FlattenedMetadata": flattenedMetadata,
 			"Error":             errorMessage,
 		}
@@ -433,7 +433,7 @@ func fetchMetadata(path string, attributes map[string]string) (string, string, e
 func buildBreadcrumb(path string) []Segment {
 	pathSegments := strings.Split(strings.TrimPrefix(path, "/"), "/")
 	segments := make([]Segment, 0, len(pathSegments))
-	for i := 0; i < len(pathSegments); i++ {
+	for i := range pathSegments {
 		segment := strings.Join(pathSegments[:i+1], "/")
 		segments = append(segments, Segment{
 			Url:  segment,
@@ -445,7 +445,7 @@ func buildBreadcrumb(path string) []Segment {
 }
 
 func renderError(w http.ResponseWriter, message string) {
-	dataObj := map[string]interface{}{
+	dataObj := map[string]any{
 		"Error": message,
 	}
 
@@ -466,16 +466,16 @@ func multiply(a, b int) int {
 }
 
 // flattenMetadata recursively traverses the JSON data and flattens it into a slice of Metadata.
-func flattenMetadata(data interface{}) []Metadata {
+func flattenMetadata(data any) []Metadata {
 	var flattenedMetadata []Metadata
 	flattenMetadataHelper(data, "", 0, &flattenedMetadata)
 	return flattenedMetadata
 }
 
 // flattenMetadataHelper is a helper function that performs the recursive traversal.
-func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMetadata *[]Metadata) {
+func flattenMetadataHelper(data any, path string, depth int, flattenedMetadata *[]Metadata) {
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 
 		// Collect and sort keys
 		keys := make([]string, 0, len(v))
@@ -491,7 +491,7 @@ func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMe
 			currentPath = strings.TrimPrefix(currentPath, "/")
 			isTerminal := !isMap(value) && !isArray(value)
 			if isArray(value) {
-				isTerminal = isTerminalArray(value.([]interface{}))
+				isTerminal = isTerminalArray(value.([]any))
 			}
 			var valueStr string
 			if isTerminal {
@@ -517,12 +517,12 @@ func flattenMetadataHelper(data interface{}, path string, depth int, flattenedMe
 				flattenMetadataHelper(value, currentPath, depth+1, flattenedMetadata)
 			}
 		}
-	case []interface{}:
+	case []any:
 		if isTerminalArray(v) {
 			// Serialize array to string
 			valueStr, err := json.Marshal(v)
 			if err != nil {
-				valueStr = []byte(fmt.Sprintf("%v", v))
+				valueStr = fmt.Appendf(nil, "%v", v)
 			}
 			key := getLastSegment(path)
 			*flattenedMetadata = append(*flattenedMetadata, Metadata{
@@ -585,22 +585,22 @@ func injectSpecialCases(serviceAccountPath string, depth int, flattenedMetadata 
 }
 
 // isMap checks if the value is a map.
-func isMap(value interface{}) bool {
-	_, ok := value.(map[string]interface{})
+func isMap(value any) bool {
+	_, ok := value.(map[string]any)
 	return ok
 }
 
 // isArray checks if the value is a slice.
-func isArray(value interface{}) bool {
-	_, ok := value.([]interface{})
+func isArray(value any) bool {
+	_, ok := value.([]any)
 	return ok
 }
 
 // isTerminalArray determines if an array consists solely of primitive types.
-func isTerminalArray(arr []interface{}) bool {
+func isTerminalArray(arr []any) bool {
 	for _, item := range arr {
 		switch item.(type) {
-		case map[string]interface{}, []interface{}:
+		case map[string]any, []any:
 			return false
 		}
 	}
@@ -617,7 +617,7 @@ func getLastSegment(path string) string {
 }
 
 // getValueString converts the value to a string representation.
-func getValueString(value interface{}) string {
+func getValueString(value any) string {
 	switch v := value.(type) {
 	case string:
 		return v
@@ -625,14 +625,14 @@ func getValueString(value interface{}) string {
 		return v.String()
 	case bool:
 		return fmt.Sprintf("%v", v)
-	case []interface{}:
+	case []any:
 		// Serialize the array to a JSON string
 		arrBytes, err := json.Marshal(v)
 		if err != nil {
 			return fmt.Sprintf("%v", v)
 		}
 		return string(arrBytes)
-	case map[string]interface{}:
+	case map[string]any:
 		// Serialize the map to a JSON string
 		mapBytes, err := json.Marshal(v)
 		if err != nil {
