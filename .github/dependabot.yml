@@ -13,6 +13,8 @@ updates:
       day: "saturday"
       time: "06:00"
       timezone: "America/New_York"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 20
   - package-ecosystem: "docker"
     directory: "/"
@@ -21,6 +23,8 @@ updates:
       day: "saturday"
       time: "06:00"
       timezone: "America/New_York"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 20
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -33,4 +37,6 @@ updates:
       codeql:
         patterns:
           - "github/codeql-action*"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 20
