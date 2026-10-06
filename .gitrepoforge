@@ -1,0 +1,14 @@
+name: "gcpmetadataexplorer"
+default_branch: "main"
+config:
+  description: "A web-based interface for browsing and inspecting the GCP metadata server."
+  license: "MIT"
+  language: "go"
+  release: "docker-go"
+  release_github: true
+  status: "active"
+  justfile: false
+  codecov:
+    enabled: true
+  docs:
+    enabled: false

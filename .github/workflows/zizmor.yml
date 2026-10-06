@@ -1,3 +1,4 @@
+# .github/workflows/zizmor.yml
 name: GitHub Actions Security Analysis with zizmor 🌈
 
 on:
@@ -16,6 +17,7 @@ jobs:
   zizmor:
     name: zizmor latest via Cargo
     runs-on: arc-runner-set
+    timeout-minutes: 30
     permissions:
       security-events: write
       # required for workflows in private repositories
@@ -31,7 +33,7 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Run zizmor 🌈
-        run: uvx zizmor --format sarif . > results.sarif 
+        run: uvx zizmor --config .github/zizmor.yml --format sarif . > results.sarif
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
 
