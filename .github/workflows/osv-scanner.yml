@@ -1,0 +1,141 @@
+# .github/workflows/osv-scanner.yml
+name: OSV-Scanner
+
+on:
+  pull_request:
+    branches: [ 'main' ]
+  push:
+    branches: [ 'main' ]
+  schedule:
+    - cron: '23 9 * * 0' # Sunday at 09:23 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  scan-pr:
+    name: Scan pull request dependencies
+    if: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+    with:
+      fail-on-vuln: false
+      upload-sarif: true
+      scan-args: |-
+        --recursive
+        --allow-no-lockfiles
+        ./
+
+  scan-full:
+    name: Scan all dependencies
+    if: ${{ github.event_name != 'pull_request' }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+    with:
+      fail-on-vuln: false
+      upload-sarif: true
+      scan-args: |-
+        --recursive
+        --allow-no-lockfiles
+        ./
+
+  scan-images:
+    name: Scan image (${{ matrix.image }}, ${{ matrix.arch }})
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+        image:
+          - 'ghcr.io/unitvectory-labs/gcpmetadataexplorer-snapshot:dev'
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Free runner space for image archives
+        # These SDKs are unused by image scanning on GitHub-hosted runners.
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+
+      - name: Export published image
+        env:
+          IMAGE: ${{ matrix.image }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker pull --platform "linux/${ARCH}" "${IMAGE}"
+          docker image inspect --format '{{json .RepoDigests}}' "${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
+          docker save --output osv-image.tar "${IMAGE}"
+          docker image rm "${IMAGE}"
+
+      - name: Scan image
+        id: scan
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        continue-on-error: true
+        with:
+          scan-args: |-
+            scan
+            image
+            --archive
+            --format=json
+            --output=osv-image.json
+            osv-image.tar
+
+      - name: Check that the image scan completed
+        run: test -s osv-image.json
+
+      - name: Generate SARIF report
+        uses: google/osv-scanner-action/osv-reporter-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: |-
+            --new=osv-image.json
+            --output=osv-image.sarif
+            --gh-annotations=false
+            --fail-on-vuln=false
+
+      - name: Upload SARIF to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: osv-image.sarif
+          category: osv-image/${{ matrix.image }}/${{ matrix.arch }}
+          wait-for-processing: true
+
+      - name: Preserve image scan reports
+        if: ${{ !cancelled() && steps.scan.outcome != 'skipped' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: osv-image-${{ strategy.job-index }}
+          path: |
+            osv-image.json
+            osv-image.sarif
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove image archive
+        if: ${{ always() }}
+        run: rm -f osv-image.tar
