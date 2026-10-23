@@ -1,6 +1,7 @@
 name: "gcpmetadataexplorer"
 default_branch: "main"
 config:
+  osv: sarif
   description: "A web-based interface for browsing and inspecting the GCP metadata server."
   license: "MIT"
   language: "go"
