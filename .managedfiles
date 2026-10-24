@@ -15,6 +15,10 @@ managed_files:
       management: file
     - path: .github/workflows/govulncheck-go.yml
       management: file
+    - path: .github/workflows/osv-scanner-full.yml
+      management: file
+    - path: .github/workflows/osv-scanner-pr.yml
+      management: file
     - path: .github/workflows/release-docker-ghcr.yml
       management: file
     - path: .github/workflows/zizmor.yml
