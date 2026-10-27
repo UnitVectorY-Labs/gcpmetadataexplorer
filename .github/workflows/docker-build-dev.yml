@@ -61,6 +61,7 @@ jobs:
       with:
         context: .
         push: true
+        sbom: true
         platforms: linux/${{ matrix.arch }}
         tags: ghcr.io/${{ env.REPO_LC }}-snapshot:dev-${{ matrix.arch }}
         build-args: |
