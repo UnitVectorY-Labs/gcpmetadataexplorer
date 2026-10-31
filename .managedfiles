@@ -13,8 +13,6 @@ managed_files:
       management: file
     - path: .github/workflows/docker-build-dev.yml
       management: file
-    - path: .github/workflows/govulncheck-go.yml
-      management: file
     - path: .github/workflows/osv-scanner-full.yml
       management: file
     - path: .github/workflows/osv-scanner-pr.yml
