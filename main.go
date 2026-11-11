@@ -2,10 +2,11 @@
 package main
 
 import (
-	"bytes"
 	"embed"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -154,9 +155,7 @@ func main() {
 		} else {
 			// Decode JSON
 			var data any
-			decoder := json.NewDecoder(bytes.NewReader([]byte(stringBody)))
-			decoder.UseNumber() // Preserve numbers as json.Number
-			if err := decoder.Decode(&data); err != nil {
+			if err := decodeMetadataJSON([]byte(stringBody), &data); err != nil {
 				log.Println("Error decoding metadata response:", err)
 				errorMessage = "Failed to decode metadata response"
 			} else {
@@ -372,6 +371,23 @@ func main() {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+// decodeMetadataJSON preserves the original representation of numbers, including
+// integers too large for float64, while applying JSON v2's strict defaults.
+func decodeMetadataJSON(input []byte, data *any) error {
+	numbers := json.UnmarshalFromFunc(func(dec *jsontext.Decoder, value *any) error {
+		if dec.PeekKind() != '0' {
+			return errors.ErrUnsupported
+		}
+		raw, err := dec.ReadValue()
+		if err != nil {
+			return err
+		}
+		*value = raw.Clone()
+		return nil
+	})
+	return json.Unmarshal(input, data, json.WithUnmarshalers(numbers))
 }
 
 // fetchMetadata retrieves data from the metadata service
@@ -621,7 +637,7 @@ func getValueString(value any) string {
 	switch v := value.(type) {
 	case string:
 		return v
-	case json.Number:
+	case jsontext.Value:
 		return v.String()
 	case bool:
 		return fmt.Sprintf("%v", v)
