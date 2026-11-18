@@ -7,6 +7,8 @@ managed_files:
       management: file
     - path: .github/workflows/build-go.yml
       management: file
+    - path: .github/workflows/chromadb-repo-indexer.yml
+      management: file
     - path: .github/workflows/codeql-go.yml
       management: file
     - path: .github/workflows/docker-build-dev.yml
@@ -16,6 +18,8 @@ managed_files:
     - path: .github/workflows/osv-scanner-pr.yml
       management: file
     - path: .github/workflows/release-docker-ghcr.yml
+      management: file
+    - path: .github/workflows/semgrep.yml
       management: file
     - path: .github/workflows/zizmor.yml
       management: file
